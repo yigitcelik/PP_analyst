@@ -1,5 +1,7 @@
 # PP_analyst
 
+Production Planning Analyst
+
 it helps to find critical path and create the gannt chart of activities that is given by excel input.
 
 it also calculutes the latency and add latency to the dates and finds the new finish dates. 
