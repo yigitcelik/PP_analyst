@@ -14,7 +14,7 @@ data =  pd.read_excel('network_macro.xlsm')
 # %%
 def find_upper_assy(x):
    
-    assy=data.loc[(data['level']<x[0]) & (data.index<x.name),'material'].tail(1).to_string(index=False)
+    assy=data.loc[(data['level']<x[0]) & (data.index<x.name),'material_activity'].tail(1).to_string(index=False)
     if assy.isalpha():
         return assy
     else:
@@ -36,7 +36,7 @@ T.nodes() #view the nodes
 
 
 
-activities_edges = [(a,b) for a,b in data[["material","next_assy"]].to_numpy()]
+activities_edges = [(a,b) for a,b in data[["material_activity","next_assy"]].to_numpy()]
 
 T.add_edges_from(activities_edges)   #add edges
 
@@ -45,10 +45,9 @@ T.edges()
 
 # %%
 #add weights to the existing edges
-activities_weights = data["leadtime(day)"].to_list()
 i=0
 for s,d in T.edges():
-    T[s][d]['weight'] =activities_weights[i]
+    T[s][d]['weight'] =data.loc[(data['material_activity']==s) & (data['next_assy']==d),'leadtime(day)'].to_list()[0]
     i+=1
 
 T.edges(data=True)
@@ -62,6 +61,7 @@ nx.draw_networkx_edge_labels(T,pos,edge_labels=nx.get_edge_attributes(T,'weight'
 nx.draw_networkx_labels(T,pos)
 plt.savefig('network.png',dpi=100)
 
+
 # %%
 print(nx.shortest_path(T,'X','-',weight='weight'))
 nx.shortest_path_length(T,'X','-',weight='weight')
@@ -69,6 +69,7 @@ nx.shortest_path_length(T,'X','-',weight='weight')
 # %%
 print(nx.dag_longest_path(T,weight='weight'))
 nx.dag_longest_path_length(T,weight='weight')
+
 
 # %%
 def find_short(x):
@@ -84,12 +85,12 @@ today = dt.datetime.today().strftime("%Y-%m-%d")
 critic_index = data[data["impacted_time"]==data['impacted_time'].max()].index.tolist()[0]
 critic_list = nx.shortest_path(T,data.iloc[critic_index][1],'-',weight='weight')
 data["critical_path"]=''
-data.loc[(data.index <= critic_index) & data['material'].isin(critic_list),'critical_path']='yes'
+data.loc[(data.index <= critic_index) & data['material_activity'].isin(critic_list),'critical_path']='yes'
 
 earliest_begin= max(data['start_date'].min().strftime("%Y-%m-%d"),today)
 earliest_begin = dt.datetime.strptime(earliest_begin,"%Y-%m-%d")
 calc_finish=  earliest_begin + timedelta(nx.dag_longest_path_length(T,weight='weight'))
-calc_finish
+print(calc_finish)
 
 # %%
 def calc_start_date(x):
@@ -101,6 +102,7 @@ def calc_finish_date(x):
 # %%
 data['calc_start_date'] = data.apply(calc_start_date,axis=1)
 data['calc_finish_date'] = data.apply(calc_finish_date,axis=1)
+
 
 # %%
 wb = xw.Book("network_macro.xlsm")
@@ -128,7 +130,7 @@ wb.save('network_macro.xlsm')
 import plotly.express as px
 
 colors= ['#D10000', '#45B08C']
-fig = px.timeline(data, x_start="calc_start_date", x_end="calc_finish_date", y="material",color='critical_path',color_discrete_sequence=colors)
+fig = px.timeline(data, x_start="calc_start_date", x_end="calc_finish_date", y="material_activity",color='critical_path',color_discrete_sequence=colors)
 fig.update_yaxes(autorange="reversed") # makes the tasks are listed from up to down
 fig.update_layout()
 fig.write_html("gant.html")
