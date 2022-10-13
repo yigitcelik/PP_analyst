@@ -1,0 +1,12 @@
+strict digraph "" {
+	A -> "-"	[weight=10];
+	B -> A	[weight=25];
+	C -> B	[weight=20];
+	X -> C	[weight=150];
+	F -> A	[weight=5];
+	E -> B	[weight=30];
+	E -> X	[weight=90];
+	Y -> C	[weight=10];
+	Y -> F	[weight=15];
+	D -> B	[weight=60];
+}
