@@ -14,27 +14,31 @@ data = pd.read_excel("network_macro.xlsm")
 
 # %%
 def find_upper_assy(x):
-
+    print(x.name)
     assy = (
         data.loc[
-            (data["level"] < x["level"]) & (data.index < x.name), "material_activity"
+            (data["level"] < x["level"]) & (data.index < x.name), "material number"
         ]
         .tail(1)
-        .to_string(index=False)
+        .to_string(index=False) #it looks the smaller level and index value than itself values and it takes the last of the result as a  next assembly number
     )
+    act = data.loc[(data["level"] < x["level"]) & (data.index < x.name), "material number"].tail(1).index #index number of the next assy
+    
     if assy.isalpha():
-        return assy
+        return assy + '_'+ str(act.to_list()[0]) # act.to_list()[0] is used for converting the value from int64index to int
     else:
         return "-"
 
 
 # %%
-data["next_assy"] = data.apply(find_upper_assy, axis=1)
+data["next_assy_activity"] = data.apply(find_upper_assy, axis=1)
+data["next_assy"] = data["next_assy_activity"].apply(lambda x:x.split('_')[0])
+data['material_activity'] = data.apply(lambda x: x["material number"]+"_"+ str(x.name),axis=1)
 data
 
 # %%
 T = nx.DiGraph()  # create a directional graph
-activities = data["next_assy"].unique().tolist()
+activities = data["next_assy_activity"].unique().tolist()
 
 T.add_nodes_from(activities)  # adding nodes
 
@@ -44,7 +48,7 @@ T.nodes()  # view the nodes
 
 
 activities_edges = [
-    (a, b) for a, b in data[["material_activity", "next_assy"]].to_numpy()
+    (a, b) for a, b in data[["material_activity", "next_assy_activity"]].to_numpy()
 ]
 
 T.add_edges_from(activities_edges)  # add edges
@@ -57,7 +61,7 @@ T.edges()
 i = 0
 for s, d in T.edges():
     T[s][d]["weight"] = data.loc[
-        (data["material_activity"] == s) & (data["next_assy"] == d), "leadtime(day)"
+        (data["material_activity"] == s) & (data["next_assy_activity"] == d), "leadtime(day)"
     ].to_list()[0]
     i += 1
 
@@ -75,8 +79,8 @@ plt.savefig("nx_test.png")
 
 
 # %%
-print(nx.shortest_path(T, "X", "-", weight="weight"))
-nx.shortest_path_length(T, "X", "-", weight="weight")
+# print(nx.shortest_path(T, "X", "-", weight="weight"))
+# nx.shortest_path_length(T, "X", "-", weight="weight")
 
 # %%
 print(nx.dag_longest_path(T, weight="weight"))
@@ -107,7 +111,7 @@ today = dt.datetime.today().strftime("%Y-%m-%d")
 critic_index = data[
     data["impacted_time"] == data["impacted_time"].max()
 ].index.tolist()[0]
-critic_list = nx.shortest_path(T, data.iloc[critic_index][1], "-", weight="weight")
+critic_list = nx.shortest_path(T, data.loc[critic_index,'material_activity'], "-", weight="weight")
 data["critical_path"] = ""
 data.loc[
     (data.index <= critic_index) & data["material_activity"].isin(critic_list),
